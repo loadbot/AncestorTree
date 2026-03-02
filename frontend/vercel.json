@@ -9,6 +9,11 @@
       "source": "/",
       "destination": "/login",
       "permanent": true
+    },
+    {
+      "source": "/welcome",
+      "destination": "/login",
+      "permanent": true
     }
   ],
   "headers": [
