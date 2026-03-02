@@ -4,6 +4,13 @@
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "outputDirectory": ".next",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/login",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
