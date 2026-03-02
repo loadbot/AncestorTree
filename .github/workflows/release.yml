@@ -113,8 +113,11 @@ jobs:
       - name: Build Electron + compile TypeScript
         run: cd desktop && npx tsc
 
-      - name: Build Windows .exe
+      - name: Build Windows .exe (signed)
         run: cd desktop && npx electron-builder --win --publish never
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

@@ -44,6 +44,14 @@ docs/00-foundation/06-Community/
 # Do NOT commit — contains real names, dates, admin emails
 docs/data/
 
+# Code signing certificates — NEVER commit
+*.pfx
+*.p12
+*.pem
+
+# Electron release artifacts
+desktop/release/
+
 # Claude Code local settings (may contain secrets)
 .claude/
 Prompt.md
