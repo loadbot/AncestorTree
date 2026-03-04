@@ -6,8 +6,8 @@
   "outputDirectory": ".next",
   "crons": [
     {
-      "path": "/scripts",
-      "schedule": "0 10 * * *"
+      "path": "/api/cron",
+      "schedule": "0 0 * * *"
     }
   ],
   "redirects": [
