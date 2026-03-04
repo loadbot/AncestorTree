@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 /**
  * Path: frontend/src/app/api/cron/route.ts
  * Triggered by Vercel Cron.
+ * Add the CRON_SECRET to Environment Variables (create randomly 32-character string)
  */
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');
@@ -55,4 +56,5 @@ export async function GET(request: Request) {
     });
   }
 }
+
 
