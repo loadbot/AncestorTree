@@ -80,7 +80,7 @@ const publicPaths = [
   '/reset-password', 
   '/welcome', 
   '/api/debug',
-  '/api/cron' 
+  '/api/cron', 
   '/scripts'
 ];
 
