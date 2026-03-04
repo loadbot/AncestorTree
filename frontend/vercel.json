@@ -4,6 +4,12 @@
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/scripts",
+      "schedule": "0 10 * * *"
+    }
+  ],
   "redirects": [
     {
       "source": "/welcome",
