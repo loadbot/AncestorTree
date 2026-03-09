@@ -2,8 +2,8 @@
 project: AncestorTree
 path: CLAUDE.md
 type: agent-guidelines
-version: 2.4.1
-updated: 2026-03-02
+version: 2.5.0
+updated: 2026-03-09
 ---
 
 # CLAUDE.md
@@ -15,7 +15,7 @@ This file provides guidance to AI assistants (Claude, GPT, etc.) when working wi
 **AncestorTree** (Gia Phả Điện Tử) is a digital family tree management system for Chi tộc Đặng Đình, Thạch Lâm, Hà Tĩnh.
 
 - **Repository:** https://github.com/Minh-Tam-Solution/AncestorTree
-- **Current Version:** v2.4.1 (Profile, MFA, Backup, Docker & Bulk Admin Actions)
+- **Current Version:** v2.5.0 (Góc giao lưu — Feed, Comments, Likes)
 - **SDLC Tier:** LITE (5 stages)
 - **Tech Stack:** Next.js 16, React 19, Tailwind CSS 4, Supabase, Electron 34 (desktop)
 - **Built with:** [TinySDLC](https://github.com/Minh-Tam-Solution/tinysdlc) + [MTS-SDLC-Lite](https://github.com/Minh-Tam-Solution/MTS-SDLC-Lite)
@@ -88,6 +88,7 @@ AncestorTree/
 │   │       ├── documents/book/     # Gia phả sách (Sprint 5)
 │   │       ├── documents/library/ # Kho tài liệu (Sprint 11)
 │   │       ├── events/             # Lịch sự kiện (Sprint 4)
+│   │       ├── feed/              # Góc giao lưu (Sprint 13)
 │   │       ├── fund/               # Quỹ khuyến học (Sprint 6)
 │   │       ├── help/               # Hướng dẫn sử dụng (Sprint 11)
 │   │       ├── people/             # Quản lý thành viên
@@ -101,6 +102,7 @@ AncestorTree/
 │   │           ├── contributions/  # QL Đóng góp (Sprint 4)
 │   │           ├── backup/         # Sao lưu & Phục hồi (Sprint 12)
 │   │           ├── documents/      # QL Tài liệu (Sprint 11)
+│   │           ├── feed/          # QL Bài viết (Sprint 13)
 │   │           ├── fund/           # QL Quỹ & Học bổng (Sprint 6)
 │   │           ├── settings/       # Cài đặt dòng họ
 │   │           └── users/          # QL Người dùng (verify/suspend/delete + bulk actions)
@@ -108,6 +110,7 @@ AncestorTree/
 │   │   ├── ui/                     # shadcn/ui components
 │   │   ├── auth/                   # Auth components (auth-provider, verification-guard)
 │   │   ├── layout/                 # Layout components (sidebar, header)
+│   │   ├── feed/                   # Feed components (post-card, compose-box, comments)
 │   │   ├── home/                   # Homepage components (featured-charter)
 │   │   └── people/                 # People components (person-form, family-relations-card)
 │   ├── src/hooks/                  # Custom React hooks
@@ -117,6 +120,7 @@ AncestorTree/
 │   │   ├── use-contributions.ts    # Contribution hooks (Sprint 4)
 │   │   ├── use-events.ts           # Event hooks (Sprint 4)
 │   │   ├── use-families.ts         # Family relations hooks (Sprint 7.5)
+│   │   ├── use-feed.ts             # Feed posts/comments/likes hooks (Sprint 13)
 │   │   ├── use-backup-schedule.ts   # Backup schedule hooks (Sprint 12)
 │   │   ├── use-clan-settings.ts    # Clan settings hooks (Sprint 12)
 │   │   ├── use-documents.ts        # Document CRUD hooks (Sprint 11)
@@ -130,6 +134,7 @@ AncestorTree/
 │   │   ├── supabase-data-charter.ts        # Charter data (Sprint 6)
 │   │   ├── supabase-data-clan-settings.ts # Clan settings data (Sprint 12)
 │   │   ├── supabase-data-documents.ts     # Document data (Sprint 11)
+│   │   ├── supabase-data-feed.ts          # Feed data (Sprint 13)
 │   │   ├── supabase-data-fund.ts          # Fund & scholarship data (Sprint 6)
 │   │   └── lunar-calendar.ts       # Lunar-solar conversion (Sprint 4)
 │   ├── src/types/                  # TypeScript types
@@ -160,7 +165,7 @@ AncestorTree/
 
 ## Database Schema
 
-15 tables across 6 layers (profiles extended with verification in Sprint 12):
+18 tables across 7 layers:
 
 | Layer | Tables | Migration File |
 |-------|--------|----------------|
@@ -170,6 +175,7 @@ AncestorTree/
 | **Ceremony (v1.4)** | `cau_duong_pools`, `cau_duong_assignments` | `cau-duong-migration.sql` |
 | **Documents (v2.2)** | `clan_documents` | `sprint11-kho-tai-lieu.sql` |
 | **Settings (v2.3)** | `clan_settings` | `clan-settings.sql` |
+| **Feed (v2.5)** | `posts`, `post_likes`, `post_comments` | `sprint13-feed.sql` |
 
 All tables have RLS policies with 4 roles: `admin`, `editor`, `viewer`, `guest`.
 
@@ -315,6 +321,12 @@ chore/upgrade-deps
 | Admin Users (Bulk) | `frontend/src/app/(main)/admin/users/page.tsx` |
 | Local Setup Script | `frontend/scripts/local-setup.mjs` |
 | Sprint 13 Spec | `docs/04-build/SPRINT-13-SPEC.md` |
+| Sprint 14 Spec | `docs/04-build/SPRINT-14-SPEC.md` |
+| Feed Page | `frontend/src/app/(main)/feed/page.tsx` |
+| Admin Feed | `frontend/src/app/(main)/admin/feed/page.tsx` |
+| Feed Data | `frontend/src/lib/supabase-data-feed.ts` |
+| Feed Hooks | `frontend/src/hooks/use-feed.ts` |
+| Feed Migration | `frontend/supabase/migrations/20260305000013_sprint13_feed.sql` |
 
 ## Common Tasks
 
