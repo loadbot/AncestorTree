@@ -660,9 +660,47 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{user.email}</TableCell>
                     <TableCell>
-                      <Badge className={roleLabels[user.role].color}>
-                        {roleLabels[user.role].label}
-                      </Badge>
+                      {isSelf(user) ? (
+                        <Badge className={roleLabels[user.role].color}>
+                          {roleLabels[user.role].label}
+                        </Badge>
+                      ) : (
+                        <Select
+                          value={user.role}
+                          onValueChange={(value) =>
+                            handleRoleChange(
+                              user.user_id,
+                              value as UserRole,
+                              user.role,
+                              user.full_name || user.email,
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-[140px] h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">
+                              <span className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-red-500" />
+                                Quản trị viên
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="editor">
+                              <span className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                                Biên tập viên
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="viewer">
+                              <span className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-gray-500" />
+                                Người xem
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </TableCell>
                     <TableCell>
                       {user.is_verified ? (
@@ -782,43 +820,6 @@ export default function UsersPage() {
                           </Button>
                         )}
 
-                        {/* Role selector */}
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) =>
-                            handleRoleChange(
-                              user.user_id,
-                              value as UserRole,
-                              user.role,
-                              user.full_name || user.email,
-                            )
-                          }
-                          disabled={isSelf(user)}
-                        >
-                          <SelectTrigger className="w-36 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">
-                              <span className="flex items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-red-500" />
-                                Quản trị viên
-                              </span>
-                            </SelectItem>
-                            <SelectItem value="editor">
-                              <span className="flex items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                                Biên tập viên
-                              </span>
-                            </SelectItem>
-                            <SelectItem value="viewer">
-                              <span className="flex items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-gray-500" />
-                                Người xem
-                              </span>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
                       </div>
                     </TableCell>
                   </TableRow>
