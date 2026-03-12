@@ -442,12 +442,16 @@ function buildTreeLayout(
     return result;
   };
 
-  const getVisibleWife = (personId: string): string | null => {
+  /** Returns all visible wives for a husband (supports polygamy). */
+  const getVisibleWives = (personId: string): string[] => {
     const fams = fatherToFamilies.get(personId) || [];
+    const wives: string[] = [];
     for (const fam of fams) {
-      if (fam.mother_id && visibleIds.has(fam.mother_id)) return fam.mother_id;
+      if (fam.mother_id && visibleIds.has(fam.mother_id)) {
+        wives.push(fam.mother_id);
+      }
     }
-    return null;
+    return wives;
   };
 
   // Wives will be positioned adjacent to husband — mark them
@@ -482,9 +486,9 @@ function buildTreeLayout(
   const subtreeWidths = new Map<string, number>();
   const computeSubtreeWidth = (personId: string): number => {
     if (subtreeWidths.has(personId)) return subtreeWidths.get(personId)!;
-    const wife = getVisibleWife(personId);
+    const wives = getVisibleWives(personId);
     const visChildren = collapsedNodes.has(personId) ? [] : getVisibleChildrenAsFather(personId);
-    const coupleWidth = NODE_WIDTH + (wife ? COUPLE_GAP + NODE_WIDTH : 0);
+    const coupleWidth = NODE_WIDTH + wives.length * (COUPLE_GAP + NODE_WIDTH);
     let childrenWidth = 0;
     if (visChildren.length > 0) {
       for (let i = 0; i < visChildren.length; i++) {
@@ -504,15 +508,19 @@ function buildTreeLayout(
   const xPositions = new Map<string, number>();
   const assignPositions = (personId: string, startX: number) => {
     const sw = subtreeWidths.get(personId) || NODE_WIDTH;
-    const wife = getVisibleWife(personId);
+    const wives = getVisibleWives(personId);
     const visChildren = collapsedNodes.has(personId) ? [] : getVisibleChildrenAsFather(personId);
-    const coupleWidth = NODE_WIDTH + (wife ? COUPLE_GAP + NODE_WIDTH : 0);
+    const coupleWidth = NODE_WIDTH + wives.length * (COUPLE_GAP + NODE_WIDTH);
     const centerX = startX + sw / 2;
 
-    // Center couple unit
+    // Center couple unit — position husband then each wife to the right
     const fatherX = centerX - coupleWidth / 2;
     xPositions.set(personId, fatherX);
-    if (wife) xPositions.set(wife, fatherX + NODE_WIDTH + COUPLE_GAP);
+    let nextWifeX = fatherX + NODE_WIDTH + COUPLE_GAP;
+    for (const wifeId of wives) {
+      xPositions.set(wifeId, nextWifeX);
+      nextWifeX += NODE_WIDTH + COUPLE_GAP;
+    }
 
     // Children spread centered under couple
     if (visChildren.length > 0) {
@@ -563,11 +571,13 @@ function buildTreeLayout(
     const motherPos = family.mother_id ? personPos.get(family.mother_id) : null;
     if (!fatherPos && !motherPos) continue;
 
-    // Couple line (horizontal, between nodes)
+    // Couple line (horizontal, between adjacent nodes in the couple chain).
+    // For polygamy, subsequent wives are positioned further right, so each
+    // couple line covers only the COUPLE_GAP immediately to the left of the wife.
     if (fatherPos && motherPos) {
       connections.push({
         id: `couple-${family.id}`,
-        x1: fatherPos.x + NODE_WIDTH,
+        x1: motherPos.x - COUPLE_GAP,
         y1: fatherPos.y + NODE_HEIGHT / 2,
         x2: motherPos.x,
         y2: motherPos.y + NODE_HEIGHT / 2,
@@ -656,7 +666,7 @@ export function FamilyTree() {
     autoCollapseApplied.current = true;
 
     const minGen = Math.min(...data.people.map(p => p.generation || 1));
-    const collapseFromGen = minGen + 2; // gen 3+ (relative)
+    const collapseFromGen = minGen + 4; // show first 4 generations, collapse gen 5+ (relative)
 
     const fathersWithChildren = new Set<string>();
     for (const family of data.families) {
