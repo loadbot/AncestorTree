@@ -11,6 +11,13 @@
       "schedule": "0 0 * * *"
     }
   ],
+  "redirects": [
+    {
+      "source": "/welcome",
+      "destination": "/login",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
