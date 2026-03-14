@@ -2,8 +2,8 @@
 project: AncestorTree
 path: docs/backend/API-ENDPOINTS.md
 type: api-reference
-version: 1.2.0
-updated: 2026-03-01
+version: 1.3.0
+updated: 2026-03-13
 owner: team
 status: approved
 ---
@@ -857,3 +857,111 @@ verify_enabled = true
 | viewer | privacy_level < 2 | ✗ | ✓ | ✓ (own) | ✗ |
 | editor | privacy_level < 2 | ✓ | ✓ | ✓ (own) | ✓ |
 | admin | all | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## 6. PDF Export — Client-side Library (`src/lib/pdf-export.ts`)
+
+> **Kiến trúc:** Toàn bộ xử lý PDF diễn ra **phía client** (browser), không có API route server-side.
+> **Dependencies:** `jspdf@^4.2.0`, `html2canvas@^1.4.1`
+
+### 6.1 Hàm `exportTreeToPdf()` — Xuất cây gia phả
+
+Xuất sơ đồ phả hệ SVG sang PDF (A2/A3/A4 ngang).
+
+**Signature:**
+```typescript
+exportTreeToPdf(
+  containerElement: HTMLElement,  // phần tử chứa <svg>
+  treeWidth: number,
+  treeHeight: number,
+  offsetX: number,
+  options?: PdfExportOptions,
+): Promise<void>
+```
+
+**Options:**
+| Tham số | Mặc định | Mô tả |
+|---------|----------|--------|
+| `filename` | `gia-pha-cay-YYYY-MM-DD.pdf` | Tên file |
+| `orientation` | `'landscape'` | Hướng trang |
+| `pageSize` | `'a3'` | Kích thước trang (`a4`/`a3`/`a2`) |
+
+**Chiến lược:** SVG → Blob URL → HTMLImageElement → Canvas (2× DPI) → PNG → jsPDF
+
+---
+
+### 6.2 Hàm `exportFullGiaPha()` — Xuất Gia Phả đầy đủ
+
+Xuất tài liệu PDF đa trang A4 gồm trang bìa, lịch sử, cây phả hệ và lý lịch thành viên.
+
+**Signature:**
+```typescript
+exportFullGiaPha(
+  containerElement: HTMLElement,
+  treeWidth: number,
+  treeHeight: number,
+  offsetX: number,
+  treeData: TreeData,
+  clanSettings: ClanSettings | null,
+  sectionOptions?: FullGiaPhaOptions,
+): Promise<void>
+```
+
+**Cấu trúc PDF đầu ra:**
+
+| Thứ tự | Trang | Định hướng | Nội dung | Điều kiện |
+|--------|-------|-----------|---------|-----------|
+| 1 | Trang bìa | Portrait A4 | Tên dòng họ, thủy tổ, năm thành lập, nguồn gốc, liên hệ | `includeCover = true` |
+| 2 | Lịch sử & Nguồn gốc | Portrait A4 | Mô tả, lịch sử, sứ mệnh, nhà thờ họ | `includeHistory = true` + có nội dung |
+| 3 | Cây gia phả | Landscape A4 | Sơ đồ SVG → PNG | `includeTree = true` |
+| 4+ | Lý lịch thành viên | Portrait A4 | Tất cả thành viên nhóm theo đời (tự động phân trang) | `includeBiographies = true` |
+
+**`FullGiaPhaOptions` (mặc định: tất cả `true`):**
+```typescript
+interface FullGiaPhaOptions {
+  includeCover: boolean;       // Trang bìa
+  includeHistory: boolean;     // Lịch sử & nguồn gốc
+  includeTree: boolean;        // Cây gia phả (A4 ngang)
+  includeBiographies: boolean; // Lý lịch thành viên
+}
+```
+
+**Cơ chế render Vietnamese:**
+- **Trang văn bản** (bìa, lịch sử, lý lịch): `html2canvas` render HTML → canvas → PNG
+  - Hỗ trợ toàn bộ ký tự Unicode (tiếng Việt có dấu)
+  - Canvas tự động chia thành A4-slice khi nội dung cao hơn 1 trang
+- **Trang cây phả hệ**: SVG clone → Blob URL → HTMLImageElement → Canvas
+
+**Trigger:** Nút "Xuất Gia Phả" trong controls bar của `FamilyTree` (chỉ desktop, `admin|editor`)
+
+---
+
+### 6.3 Hàm `getExportWarning()` — Cảnh báo kích thước
+
+```typescript
+getExportWarning(nodeCount: number): string | null
+// > 50 người: toast info
+// > 100 người: chặn xuất, yêu cầu lọc nhánh trước
+```
+
+---
+
+### 6.4 UX Flow — Xuất Gia Phả
+
+```
+Người dùng click "Xuất Gia Phả"
+  → Dialog mở (chọn trang: bìa / lịch sử / cây / lý lịch)
+  → Click "Xuất PDF"
+    → exportFullGiaPha() chạy tuần tự:
+       1. htmlToCanvas(cover)   → pdf.addImage()
+       2. htmlToCanvas(history) → sliceCanvasToPages()
+       3. svgToCanvas(tree)     → pdf.addImage() (landscape)
+       4. htmlToCanvas(bio)     → sliceCanvasToPages()
+    → pdf.save("gia-pha-day-du-YYYY-MM-DD.pdf")
+```
+
+**Thời gian ước tính:**
+- Cây < 30 người: ~5–10 giây
+- Cây 30–100 người: ~15–30 giây
+- Cây > 100 người: không khuyến khích (lọc nhánh trước)
