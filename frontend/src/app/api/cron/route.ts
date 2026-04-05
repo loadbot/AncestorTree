@@ -2,15 +2,18 @@
  * @project AncestorTree
  * @file src/app/api/cron/route.ts
  * @description Vercel Cron — lightweight database keep-alive ping
- * @version 1.0.0
- * @updated 2026-03-09
+ * @version 1.0.1
+ * @updated 2026-04-05
  */
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// 1. Force Next.js to bypass Route Handler caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; 
+
 export async function GET(request: Request) {
-  // Verify cron secret (Vercel sends this automatically)
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
@@ -22,6 +25,14 @@ export async function GET(request: Request) {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          persistSession: false,
+        },
+        global: {
+          fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' }),
+        },
+      }
     );
 
     const { error } = await supabase
