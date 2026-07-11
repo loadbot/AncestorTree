@@ -2,13 +2,13 @@
 project: AncestorTree
 path: docs/backend/API-ENDPOINTS.md
 type: api-reference
-version: 1.3.0
-updated: 2026-03-13
+version: 1.4.0
+updated: 2026-07-11
 owner: team
 status: approved
 ---
 
-# API Endpoints — AncestorTree v2.3.0
+# API Endpoints — AncestorTree v2.5.0
 
 > **Kiến trúc:** Next.js App Router + Supabase PostgREST
 > **Auth:** Supabase JWT (cookie-based via `@supabase/ssr`)
@@ -965,3 +965,109 @@ Người dùng click "Xuất Gia Phả"
 - Cây < 30 người: ~5–10 giây
 - Cây 30–100 người: ~15–30 giây
 - Cây > 100 người: không khuyến khích (lọc nhánh trước)
+
+---
+
+## 7. Word Export — Client-side Library (`src/lib/word-export.ts`)
+
+> **Kiến trúc:** Xử lý hoàn toàn **phía client** (browser), không gọi API server.
+> **Dependencies:** `docx@^9.7.1`, `file-saver@^2.0.5`
+> **Định dạng đầu ra:** Microsoft Word `.docx` (Open XML), tương thích Word/LibreOffice/Google Docs.
+
+### 7.1 Hàm `exportFullGiaPhaWord()` — Xuất Gia Phả đầy đủ ra Word
+
+Xuất tài liệu Word (.docx) đa section gồm trang bìa, lịch sử, cây phả hệ và lý lịch thành viên. Có thể chỉnh sửa lại sau khi tải về, phù hợp lưu trữ và in ấn.
+
+**Signature:**
+```typescript
+exportFullGiaPhaWord(
+  containerElement: HTMLElement | null, // phần tử chứa <svg> cây phả hệ
+  treeWidth: number,
+  treeHeight: number,
+  offsetX: number,
+  treeData: TreeDataInput,
+  clanSettings: ClanSettings | null,
+  sectionOptions?: FullGiaPhaWordOptions,
+): Promise<void>
+```
+
+**`FullGiaPhaWordOptions` (mặc định: tất cả `true`):**
+```typescript
+interface FullGiaPhaWordOptions {
+  includeCover: boolean;       // Trang bìa
+  includeHistory: boolean;     // Lịch sử & nguồn gốc
+  includeTree: boolean;        // Cây gia phả (A4 ngang, ảnh PNG chèn)
+  includeBiographies: boolean; // Lý lịch từng thành viên nhóm theo đời
+}
+```
+
+### 7.2 Cấu trúc file .docx đầu ra
+
+Mỗi phần được xuất là một **Word section** riêng — kiểm soát định hướng trang và margin độc lập.
+
+| Thứ tự | Section | Khổ giấy | Định hướng | Margin | Nội dung |
+|--------|---------|---------|-----------|--------|---------|
+| 1 | Trang bìa | A4 (210×297mm) | Portrait | 20mm | Tên dòng họ, thủy tổ, năm thành lập, nguồn gốc, liên hệ |
+| 2 | Lịch sử & Nguồn gốc | A4 | Portrait | 20mm | Mô tả, lịch sử, sứ mệnh, nhà thờ họ (justify, Times New Roman) |
+| 3 | Cây gia phả | A4 (297×210mm) | **Landscape** | 15mm | Ảnh PNG sơ đồ phả hệ (kích thước tự co giãn giữ tỉ lệ) |
+| 4 | Lý lịch thành viên | A4 | Portrait | 20mm | Bảng thống kê + thẻ (card) từng thành viên nhóm theo đời |
+
+**Header / Footer** (từ section 2 trở đi):
+- **Header:** Tên dòng họ (canh phải, viền dưới amber)
+- **Footer:** `AncestorTree · Xuất ngày YYYY-MM-DD | Trang X / Y`
+
+### 7.3 Tông màu (đồng bộ với PDF export)
+
+| Vai trò | Mã hex | Sử dụng |
+|--------|-------|--------|
+| Amber-700 | `#B45309` | Nhấn (accent), viền dưới tiêu đề |
+| Amber-900 | `#78350F` | Tiêu đề bìa, banner đời |
+| Amber-100 | `#FEF3C7` | Nền bảng thống kê |
+| Blue-50 / Blue-300 | `#EFF6FF` / `#93C5FD` | Thẻ thành viên nam |
+| Pink-50 / Pink-300 | `#FFF1F2` / `#FDA4AF` | Thẻ thành viên nữ |
+| Stone-900 | `#1C1917` | Text body |
+| Stone-500 | `#78716C` | Label |
+
+Toàn bộ text dùng font **Times New Roman** (cỡ 12pt body, 15pt section title, 28pt title).
+
+### 7.4 Cơ chế render cây gia phả
+
+Cùng chiến lược với PDF export:
+
+```
+SVG (in-DOM)
+  → clone + reset transform + set full viewBox
+  → XMLSerializer → Blob URL
+  → HTMLImageElement.onload
+  → Canvas 2× DPI → PNG dataURL
+  → fetch(dataURL) → ArrayBuffer
+  → docx.ImageRun { type: 'png', data: ArrayBuffer, transformation: {w,h} }
+```
+
+Ảnh chèn vào trang A4 landscape, tự động co giãn giữ tỉ lệ trong vùng usable **1010×640 px** (~26.7×17.0 cm).
+
+### 7.5 Trigger UI
+
+**Nút:** "Xuất Gia Phả Word" trong `FamilyTree` toolbar (icon `FileText` màu xanh dương).
+
+**Flow:**
+```
+Click "Xuất Gia Phả Word"
+  → Dialog Word mở (chọn phần: bìa / lịch sử / cây / lý lịch)
+  → Click "Xuất Word"
+    → exportFullGiaPhaWord() chạy tuần tự:
+       1. buildCoverSection()      → docx section (portrait)
+       2. buildHistorySection()    → docx section (portrait, có header/footer)
+       3. svgToPng() + ImageRun    → docx section (landscape)
+       4. buildBiographySection()  → docx section (portrait, stats + card từng đời)
+    → Packer.toBlob(doc)
+    → saveAs(blob, "gia-pha-day-du-YYYY-MM-DD.docx")
+```
+
+### 7.6 Bảo mật (client-side)
+
+- **Không có endpoint server-side** — file được tạo hoàn toàn trong browser, không dữ liệu rời máy client.
+- Kế thừa RLS: `useTreeData()` chỉ trả về `people` mà user hiện tại được quyền đọc → export tự động lọc theo role/privacy_level.
+- Ảnh cây phả hệ chỉ hiển thị tên/ngày (không PII contact), do TreeNode SVG render không bao gồm phone/email/address.
+- Kích thước file: xấp xỉ 100–300 KB (< 30 người) → 500–800 KB (30–100 người). Không phát hành ra ngoài.
+- Cảnh báo kích thước dùng chung `getExportWarning()` với PDF export (chặn ở > 100 người, cảnh báo ở > 50).
