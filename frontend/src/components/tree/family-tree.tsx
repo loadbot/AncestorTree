@@ -48,6 +48,11 @@ import {
   DEFAULT_FULL_OPTIONS,
   type FullGiaPhaOptions,
 } from '@/lib/pdf-export';
+import {
+  exportFullGiaPhaWord,
+  DEFAULT_FULL_WORD_OPTIONS,
+  type FullGiaPhaWordOptions,
+} from '@/lib/word-export';
 import { useClanSettings } from '@/hooks/use-clan-settings';
 import {
   Dialog,
@@ -61,7 +66,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { FileDown, BookText, Loader2 } from 'lucide-react';
+import { FileDown, BookText, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -724,8 +729,12 @@ export function FamilyTree() {
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingFull, setIsExportingFull] = useState(false);
+  const [isExportingWord, setIsExportingWord] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showWordDialog, setShowWordDialog] = useState(false);
   const [exportOptions, setExportOptions] = useState<FullGiaPhaOptions>(DEFAULT_FULL_OPTIONS);
+  const [wordExportOptions, setWordExportOptions] =
+    useState<FullGiaPhaWordOptions>(DEFAULT_FULL_WORD_OPTIONS);
 
   // Track container size via ResizeObserver (avoids reading refs during render)
   const containerCallbackRef = useCallback((node: HTMLDivElement | null) => {
@@ -772,6 +781,38 @@ export function FamilyTree() {
       setIsExportingPdf(false);
     }
   }, [layout]);
+
+  // Full genealogy WORD export — actual export after dialog confirm
+  const handleExportFullGiaPhaWord = useCallback(async () => {
+    if (!containerRef.current || !layout || !data) return;
+    setShowWordDialog(false);
+
+    const warning = getExportWarning(layout.nodes.length);
+    if (warning && layout.nodes.length > 100) {
+      toast.warning(warning);
+      return;
+    }
+    if (warning) toast.info(warning);
+
+    setIsExportingWord(true);
+    try {
+      await exportFullGiaPhaWord(
+        containerRef.current,
+        layout.width,
+        layout.height,
+        layout.offsetX,
+        data,
+        clanSettings ?? null,
+        wordExportOptions,
+      );
+      toast.success('Xuất Gia Phả Word thành công');
+    } catch (err) {
+      console.error('[Word export]', err);
+      toast.error('Lỗi khi xuất Gia Phả Word. Vui lòng thử lại.');
+    } finally {
+      setIsExportingWord(false);
+    }
+  }, [layout, data, clanSettings, wordExportOptions]);
 
   // Full genealogy PDF export — actual export after dialog confirm
   const handleExportFullGiaPha = useCallback(async () => {
@@ -1101,7 +1142,7 @@ export function FamilyTree() {
           variant="ghost"
           size="sm"
           onClick={handleExportPdf}
-          disabled={isExportingPdf || isExportingFull || !layout}
+          disabled={isExportingPdf || isExportingFull || isExportingWord || !layout}
           className="hidden md:flex"
           title="Xuất sơ đồ cây (PDF)"
         >
@@ -1118,7 +1159,7 @@ export function FamilyTree() {
           variant="ghost"
           size="sm"
           onClick={() => setShowExportDialog(true)}
-          disabled={isExportingFull || isExportingPdf || !layout}
+          disabled={isExportingFull || isExportingPdf || isExportingWord || !layout}
           className="hidden md:flex"
           title="Xuất đầy đủ Gia Phả (bìa + lịch sử + cây + lý lịch thành viên)"
         >
@@ -1127,7 +1168,24 @@ export function FamilyTree() {
           ) : (
             <BookText className="h-4 w-4 mr-2" />
           )}
-          Xuất Gia Phả
+          Xuất Gia Phả PDF
+        </Button>
+
+        {/* Full genealogy WORD export */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowWordDialog(true)}
+          disabled={isExportingWord || isExportingFull || isExportingPdf || !layout}
+          className="hidden md:flex"
+          title="Xuất đầy đủ Gia Phả ra định dạng Word (.docx)"
+        >
+          {isExportingWord ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <FileText className="h-4 w-4 mr-2 text-blue-700" />
+          )}
+          Xuất Gia Phả Word
         </Button>
 
         {/* Pan indicator */}
@@ -1381,6 +1439,124 @@ export function FamilyTree() {
             >
               <BookText className="h-4 w-4 mr-2" />
               Xuất PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Export Gia Phả WORD Dialog ────────────────────────────────────── */}
+      <Dialog open={showWordDialog} onOpenChange={setShowWordDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-700" />
+              Xuất Gia Phả Word (.docx)
+            </DialogTitle>
+            <DialogDescription>
+              Tài liệu Microsoft Word có thể chỉnh sửa, phù hợp in trên khổ A4.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Cover */}
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="word-opt-cover"
+                checked={wordExportOptions.includeCover}
+                onCheckedChange={(v) =>
+                  setWordExportOptions((o) => ({ ...o, includeCover: !!v }))
+                }
+              />
+              <div className="grid gap-0.5">
+                <Label htmlFor="word-opt-cover" className="font-medium cursor-pointer">
+                  Trang bìa
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Tên dòng họ, thủy tổ, năm thành lập, nguồn gốc
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* History */}
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="word-opt-history"
+                checked={wordExportOptions.includeHistory}
+                onCheckedChange={(v) =>
+                  setWordExportOptions((o) => ({ ...o, includeHistory: !!v }))
+                }
+              />
+              <div className="grid gap-0.5">
+                <Label htmlFor="word-opt-history" className="font-medium cursor-pointer">
+                  Lịch sử &amp; Nguồn gốc
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Mô tả, lịch sử, sứ mệnh, nhà thờ họ
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Tree */}
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="word-opt-tree"
+                checked={wordExportOptions.includeTree}
+                onCheckedChange={(v) =>
+                  setWordExportOptions((o) => ({ ...o, includeTree: !!v }))
+                }
+              />
+              <div className="grid gap-0.5">
+                <Label htmlFor="word-opt-tree" className="font-medium cursor-pointer">
+                  Cây gia phả
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Ảnh sơ đồ phả hệ chèn vào trang A4 ngang
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Biographies */}
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="word-opt-bio"
+                checked={wordExportOptions.includeBiographies}
+                onCheckedChange={(v) =>
+                  setWordExportOptions((o) => ({ ...o, includeBiographies: !!v }))
+                }
+              />
+              <div className="grid gap-0.5">
+                <Label htmlFor="word-opt-bio" className="font-medium cursor-pointer">
+                  Lý lịch thành viên
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Thông tin đầy đủ từng người, nhóm theo đời ({data?.people.length ?? 0} thành viên)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowWordDialog(false)}>
+              Huỷ
+            </Button>
+            <Button
+              onClick={handleExportFullGiaPhaWord}
+              disabled={
+                !wordExportOptions.includeCover &&
+                !wordExportOptions.includeHistory &&
+                !wordExportOptions.includeTree &&
+                !wordExportOptions.includeBiographies
+              }
+              className="bg-blue-700 hover:bg-blue-800 text-white"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Xuất Word
             </Button>
           </DialogFooter>
         </DialogContent>
